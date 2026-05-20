@@ -2,7 +2,7 @@ import type { Article, Edition, Category, FeedResponse, Preferences } from '../t
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 const ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 async function callGemini(prompt: string, maxTokens = 1500): Promise<string> {
   const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
