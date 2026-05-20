@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface2: #1c1c26;
+  --border: rgba(255, 255, 255, 0.07);
+  --text: #f0eee8;
+  --muted: rgba(240, 238, 232, 0.5);
+  --accent: #e8c547;
+  --accent2: #5d8aff;
+  --red: #ff6b6b;
+  --green: #4dd6a0;
+  --teal: #3ec9c9;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Hide scrollbars for category tabs */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Slide-in animation for article detail */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Progress bar animation */
+@keyframes progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-progress {
+  animation: progress 1.4s ease-in-out infinite;
+}
+
+/* Slow spin for refresh button */
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
+}
+
+/* Ping animation override for better visibility */
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping {
+  animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Input placeholder color */
+input::placeholder {
+  color: var(--muted);
+}
+
+/* Tap highlight override for mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area for iOS */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
