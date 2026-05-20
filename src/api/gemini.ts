@@ -1,26 +1,60 @@
 import type { Article, Edition, Category, FeedResponse, Preferences } from '../types'
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-const ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+const MODEL = 'gemini-2.0-flash-lite'
+const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+
+const MAX_RETRIES = 4
 
 async function callGemini(prompt: string, maxTokens = 1500): Promise<string> {
-  const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
-    }),
-  })
+  let lastError: Error | null = null
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini API error ${res.status}: ${err}`)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 2s, 4s, 8s, 16s
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** (attempt - 1)))
+    }
+
+    const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: maxTokens },
+      }),
+    })
+
+    if (res.status === 429) {
+      // Parse retry-after hint from response if available
+      let retryAfterMs = 0
+      try {
+        const body = await res.clone().json()
+        const retryInfo = body?.error?.details?.find(
+          (d: { '@type': string; retryDelay?: string }) =>
+            d['@type']?.includes('RetryInfo') && d.retryDelay
+        )
+        if (retryInfo?.retryDelay) {
+          retryAfterMs = parseFloat(retryInfo.retryDelay) * 1000
+        }
+      } catch {
+        // ignore parse errors
+      }
+      const waitMs = Math.max(retryAfterMs, 2000 * 2 ** attempt)
+      lastError = new Error(`Rate limited — retrying in ${Math.round(waitMs / 1000)}s…`)
+      await new Promise((r) => setTimeout(r, waitMs))
+      continue
+    }
+
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Gemini API error ${res.status}: ${err}`)
+    }
+
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
   }
 
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  throw lastError ?? new Error('Gemini API: max retries exceeded')
 }
 
 function buildFilterRules(prefs: Preferences): string {
