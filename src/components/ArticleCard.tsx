@@ -1,12 +1,8 @@
 import { IconBookmark, IconBookmarkFilled } from '@tabler/icons-react'
 import type { Article } from '../types'
+import { timeAgo } from '../lib/time'
 import { SourceBadge } from './SourceBadge'
-
-function timeAgo(minutes: number): string {
-  if (minutes < 60) return `${minutes}m ago`
-  const h = Math.floor(minutes / 60)
-  return `${h}h ago`
-}
+import { Thumb } from './Thumb'
 
 interface Props {
   article: Article
@@ -28,22 +24,28 @@ export function ArticleCard({ article, saved, onSave, onClick, showBorder = true
         <span className="text-sm">{article.region}</span>
         <span className="text-xs" style={{ color: 'var(--muted)' }}>{article.category}</span>
         <span className="ml-auto text-xs tabular-nums" style={{ color: 'var(--muted)' }}>
-          {timeAgo(article.minutesAgo)}
+          {timeAgo(article.publishedAt)}
         </span>
       </div>
 
-      <h3
-        className="text-base font-bold leading-snug mb-1.5"
-        style={{ fontFamily: "'Playfair Display', serif", color: 'var(--text)' }}
-      >
-        {article.title}
-      </h3>
+      <div className="flex gap-3">
+        <div className="min-w-0 flex-1">
+          <h3
+            className="text-base font-bold leading-snug mb-1.5"
+            style={{ fontFamily: "'Playfair Display', serif", color: 'var(--text)' }}
+          >
+            {article.title}
+          </h3>
+          {article.summary && (
+            <p className="text-sm leading-relaxed line-clamp-3" style={{ color: 'var(--muted)' }}>
+              {article.summary}
+            </p>
+          )}
+        </div>
+        {article.image && <Thumb src={article.image} className="h-20 w-20 shrink-0 rounded-lg" />}
+      </div>
 
-      <p className="text-sm leading-relaxed line-clamp-2 mb-3" style={{ color: 'var(--muted)' }}>
-        {article.summary}
-      </p>
-
-      <div className="flex items-center justify-between">
+      <div className="mt-3 flex items-center justify-between">
         <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>Read →</span>
         <button
           onClick={(e) => { e.stopPropagation(); onSave() }}

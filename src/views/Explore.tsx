@@ -1,24 +1,30 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconSearch, IconX } from '@tabler/icons-react'
-import type { Article } from '../types'
-import { searchNews } from '../api/gemini'
+import type { Article, Preferences } from '../types'
+import { fetchNews } from '../api/news'
+import { applyPrefs } from '../lib/filter'
 import { ArticleCard } from '../components/ArticleCard'
 import { ArticleDetail } from '../components/ArticleDetail'
 import { ProgressBar } from '../components/ProgressBar'
+import { FeedSkeleton } from '../components/Skeletons'
 
 interface Props {
+  prefs: Preferences
   isSaved: (id: string) => boolean
   onSave: (article: Article) => void
-  initialQuery?: string
 }
 
-export function Explore({ isSaved, onSave, initialQuery = '' }: Props) {
-  const [query, setQuery] = useState(initialQuery)
-  const [results, setResults] = useState<Article[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+interface SearchState {
+  query: string
+  items?: Article[]
+  error?: string
+}
+
+export function Explore({ prefs, isSaved, onSave }: Props) {
+  const [input, setInput] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [state, setState] = useState<SearchState | null>(null)
   const [selected, setSelected] = useState<Article | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -26,42 +32,35 @@ export function Explore({ isSaved, onSave, initialQuery = '' }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return }
+    const t = setTimeout(() => setDebounced(input.trim()), 700)
+    return () => clearTimeout(t)
+  }, [input])
 
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const data = await searchNews(query.trim())
-        setResults(data)
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    }, 700)
+  useEffect(() => {
+    if (!debounced) return
+    const ac = new AbortController()
+    fetchNews({ edition: 'Global', q: debounced }, ac.signal)
+      .then((items) => setState({ query: debounced, items }))
+      .catch((e: Error) => {
+        if (e.name !== 'AbortError') setState({ query: debounced, error: e.message })
+      })
+    return () => ac.abort()
+  }, [debounced])
 
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query])
-
-  if (selected) {
-    return (
-      <ArticleDetail
-        article={selected}
-        saved={isSaved(selected.id)}
-        onSave={() => onSave(selected)}
-        onBack={() => setSelected(null)}
-      />
-    )
-  }
+  // Results belong to the query that produced them; anything else means we're still waiting.
+  const current = debounced && state?.query === debounced ? state : null
+  const loading = Boolean(input.trim()) && !current
+  const results = useMemo(() => (current?.items ? applyPrefs(current.items, prefs) : []), [current, prefs])
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ paddingBottom: '72px' }}>
-      {/* Search header */}
+    <div className="flex min-h-screen flex-col" style={{ paddingBottom: '72px' }}>
       <div
         className="sticky top-0 z-40 px-4 pt-4 pb-2"
-        style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--bg)',
+          borderBottom: '1px solid var(--border)',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        }}
       >
         <div
           className="flex items-center gap-3 rounded-2xl px-4 py-3"
@@ -70,53 +69,54 @@ export function Explore({ isSaved, onSave, initialQuery = '' }: Props) {
           <IconSearch size={18} style={{ color: 'var(--muted)', flexShrink: 0 }} />
           <input
             ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search any topic..."
-            className="flex-1 bg-transparent outline-none text-sm"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Search any topic…"
+            enterKeyHint="search"
+            className="flex-1 bg-transparent text-base outline-none"
             style={{ color: 'var(--text)' }}
           />
-          {query && (
-            <button onClick={() => setQuery('')} style={{ color: 'var(--muted)' }}>
+          {input && (
+            <button onClick={() => setInput('')} style={{ color: 'var(--muted)' }} aria-label="Clear search">
               <IconX size={16} />
             </button>
           )}
         </div>
-        <ProgressBar loading={loading} />
+        <div className="mt-2">
+          <ProgressBar loading={loading} />
+        </div>
       </div>
 
-      {/* Results */}
-      {error && (
-        <div className="mx-4 mt-4 rounded-xl p-4 text-sm" style={{ background: 'var(--surface)', color: 'var(--red)', border: '1px solid var(--border)' }}>
-          {error}
+      {current?.error && (
+        <div
+          className="mx-4 mt-4 rounded-xl p-4 text-sm"
+          style={{ background: 'var(--surface)', color: 'var(--red)', border: '1px solid var(--border)' }}
+        >
+          {current.error}
         </div>
       )}
 
-      {!query.trim() && (
-        <div className="flex flex-col items-center justify-center mt-20 px-8 text-center">
+      {!input.trim() && (
+        <div className="mt-20 flex flex-col items-center justify-center px-8 text-center">
           <IconSearch size={48} style={{ color: 'var(--muted)', opacity: 0.4 }} />
           <p className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>
-            Search for any topic — AI will find the latest relevant stories
+            Search any topic and Pulse will pull the latest headlines from news sources.
           </p>
         </div>
       )}
 
-      {loading && (
-        <div className="px-4 mt-4 space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-2 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-              {[60, 90, 70].map((w, j) => (
-                <div key={j} className="animate-pulse rounded" style={{ height: '0.75rem', background: 'var(--surface2)', width: `${w}%` }} />
-              ))}
-            </div>
-          ))}
-        </div>
+      {loading && <FeedSkeleton featured={false} />}
+
+      {current?.items && results.length === 0 && (
+        <p className="mt-16 px-8 text-center text-sm" style={{ color: 'var(--muted)' }}>
+          No results for “{current.query}”.
+        </p>
       )}
 
-      {!loading && results.length > 0 && (
+      {results.length > 0 && (
         <div className="mt-2">
           <p className="px-4 py-2 text-xs" style={{ color: 'var(--muted)' }}>
-            {results.length} results for "{query}"
+            {results.length} results for “{current?.query}”
           </p>
           {results.map((a, i) => (
             <ArticleCard
@@ -129,6 +129,15 @@ export function Explore({ isSaved, onSave, initialQuery = '' }: Props) {
             />
           ))}
         </div>
+      )}
+
+      {selected && (
+        <ArticleDetail
+          article={selected}
+          saved={isSaved(selected.id)}
+          onSave={() => onSave(selected)}
+          onBack={() => setSelected(null)}
+        />
       )}
     </div>
   )

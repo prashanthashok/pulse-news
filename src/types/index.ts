@@ -22,24 +22,15 @@ export interface Article {
   region: string
   category: string
   url: string
-  minutesAgo: number
-  body?: string
-}
-
-export interface FeedResponse {
-  featured: Omit<Article, 'id'>
-  articles: Omit<Article, 'id'>[]
+  publishedAt?: string | null
+  image?: string
 }
 
 export interface Preferences {
-  reducePolitical: boolean
-  limitDoomLoops: boolean
-  constructiveNews: boolean
-  balancedSourcing: boolean
-  focusIndia: boolean
-  focusUS: boolean
-  focusScience: boolean
-  focusAITech: boolean
+  /** Sources hidden from the feed. */
+  disabledSources: string[]
+  /** Articles whose title or summary contain any of these words are hidden. */
+  mutedWords: string[]
 }
 
 export type View = 'feed' | 'explore' | 'saved' | 'prefs'

@@ -13,22 +13,15 @@ interface Props {
 export function Saved({ saved, isSaved, onSave }: Props) {
   const [selected, setSelected] = useState<Article | null>(null)
 
-  if (selected) {
-    return (
-      <ArticleDetail
-        article={selected}
-        saved={isSaved(selected.id)}
-        onSave={() => { onSave(selected); setSelected(null) }}
-        onBack={() => setSelected(null)}
-      />
-    )
-  }
-
   return (
-    <div className="flex flex-col min-h-screen" style={{ paddingBottom: '72px' }}>
+    <div className="flex min-h-screen flex-col" style={{ paddingBottom: '72px' }}>
       <div
         className="sticky top-0 z-40 px-4 py-3"
-        style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}
+        style={{
+          background: 'var(--bg)',
+          borderBottom: '1px solid var(--border)',
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        }}
       >
         <h2
           className="text-xl font-black"
@@ -39,7 +32,7 @@ export function Saved({ saved, isSaved, onSave }: Props) {
       </div>
 
       {saved.length === 0 ? (
-        <div className="flex flex-col items-center justify-center mt-20 px-8 text-center">
+        <div className="mt-20 flex flex-col items-center justify-center px-8 text-center">
           <IconBookmark size={52} style={{ color: 'var(--muted)', opacity: 0.3 }} />
           <p className="mt-4 font-semibold" style={{ color: 'var(--text)' }}>Nothing saved yet</p>
           <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
@@ -62,6 +55,15 @@ export function Saved({ saved, isSaved, onSave }: Props) {
             />
           ))}
         </div>
+      )}
+
+      {selected && (
+        <ArticleDetail
+          article={selected}
+          saved={isSaved(selected.id)}
+          onSave={() => onSave(selected)}
+          onBack={() => setSelected(null)}
+        />
       )}
     </div>
   )

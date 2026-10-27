@@ -1,42 +1,63 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { Preferences } from '../types'
 
-const STORAGE_KEY = 'pulse_preferences'
+const STORAGE_KEY = 'pulse_prefs_v2'
 
-const defaultPrefs: Preferences = {
-  reducePolitical: true,
-  limitDoomLoops: true,
-  constructiveNews: true,
-  balancedSourcing: true,
-  focusIndia: true,
-  focusUS: true,
-  focusScience: true,
-  focusAITech: true,
-}
+const defaults: Preferences = { disabledSources: [], mutedWords: [] }
 
-function loadPrefs(): Preferences {
+function load(): Preferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? { ...defaultPrefs, ...(JSON.parse(raw) as Partial<Preferences>) } : defaultPrefs
+    if (!raw) return defaults
+    const p = JSON.parse(raw) as Partial<Preferences>
+    return {
+      disabledSources: Array.isArray(p.disabledSources) ? p.disabledSources : [],
+      mutedWords: Array.isArray(p.mutedWords) ? p.mutedWords : [],
+    }
   } catch {
-    return defaultPrefs
+    return defaults
   }
 }
 
 export function usePreferences() {
-  const [prefs, setPrefs] = useState<Preferences>(loadPrefs)
+  const [prefs, setPrefs] = useState<Preferences>(load)
 
-  const toggle = useCallback((key: keyof Preferences) => {
+  const update = useCallback((fn: (p: Preferences) => Preferences) => {
     setPrefs((prev) => {
-      const next = { ...prev, [key]: !prev[key] }
+      const next = fn(prev)
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       } catch {
-        // ignore
+        // storage unavailable; keep the in-memory value
       }
       return next
     })
   }, [])
 
-  return { prefs, toggle }
+  const toggleSource = useCallback(
+    (name: string) =>
+      update((p) => ({
+        ...p,
+        disabledSources: p.disabledSources.includes(name)
+          ? p.disabledSources.filter((s) => s !== name)
+          : [...p.disabledSources, name],
+      })),
+    [update],
+  )
+
+  const addMutedWord = useCallback(
+    (word: string) => {
+      const w = word.trim().toLowerCase()
+      if (!w) return
+      update((p) => (p.mutedWords.includes(w) ? p : { ...p, mutedWords: [...p.mutedWords, w] }))
+    },
+    [update],
+  )
+
+  const removeMutedWord = useCallback(
+    (word: string) => update((p) => ({ ...p, mutedWords: p.mutedWords.filter((w) => w !== word) })),
+    [update],
+  )
+
+  return { prefs, toggleSource, addMutedWord, removeMutedWord }
 }
